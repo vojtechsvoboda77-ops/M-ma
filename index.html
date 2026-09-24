@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portál Péče o Maminku | Správa Lékařských Zpráv & Deník Péče</title>
+  <meta name="description" content="Přehledný sdílený systém pro rodinnou péči po reoperaci endoprotézy a zlomenině kosti. Ukládání lékařských zpráv, deník péče, léky a sdílení.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css?v=4.0">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- App Header & Patient Profile Hero -->
+  <header class="app-header">
+    <div class="header-banner-bg"></div>
+    <div class="header-container">
+      
+      <!-- Top Brand Bar -->
+      <div class="top-bar">
+        <div class="brand">
+          <div class="brand-icon">
+            <i data-lucide="heart-handshake"></i>
+          </div>
+          <div>
+            <h1 class="brand-title">Péče o Maminku</h1>
+            <div class="brand-subtitle">Rodinný portál zdravotní dokumentace & deník rekonvalescence</div>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <button class="btn btn-primary" style="background: #2563eb; border-color: #3b82f6;" id="btnPushCloud" title="Nahrát vaše zadaná data do společné databáze pro ostatní" onclick="app.pushAllLocalToFirebaseWithAlert()">
+            <i data-lucide="cloud-upload"></i> Nahrát do cloudu
+          </button>
+          <button class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);" id="btnExportBackup" title="Stáhnout kompletní zálohu dat pro synchronizaci">
+            <i data-lucide="download"></i> Záloha (JSON)
+          </button>
+          <button class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);" id="btnImportBackup" title="Nahrát zálohu pro synchronizaci">
+            <i data-lucide="upload"></i> Obnovit
+          </button>
+          <input type="file" id="importFileInput" accept=".json" style="display: none;">
+          <button class="btn btn-secondary" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);" id="btnClearSampleData" title="Vymazat ukázková data a začít s čistým štítem">
+            <i data-lucide="trash-2"></i> Čistý štít
+          </button>
+          <button class="btn btn-primary" id="btnPrintReport">
+            <i data-lucide="printer"></i> Vytisknout
+          </button>
+        </div>
+      </div>
+
+      <!-- Patient Profile Hero Card -->
+      <div class="patient-card">
+        <div class="patient-avatar">
+          <i data-lucide="user"></i>
+        </div>
+        <div class="patient-details" id="patientHeroDetails">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h2>Portál Péče o Maminku</h2>
+              <p style="color: var(--primary-100); font-size: 0.9rem; margin-bottom: 0.4rem;">
+                <strong>Diagnóza:</strong> Načítání údajů...
+              </p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnEditPatientProfile" onclick="app.openEditPatientModal()" style="background: rgba(255,255,255,0.25); color: white; border: 1px solid rgba(255,255,255,0.4); font-weight: 600; cursor: pointer;">
+              <i data-lucide="edit-3"></i> Upravit profil
+            </button>
+          </div>
+          <div class="patient-tags">
+            <span class="patient-badge"><i data-lucide="calendar"></i> Načítání dat...</span>
+          </div>
+        </div>
+        <div class="status-stats">
+          <div class="stat-box">
+            <div class="stat-number" id="statDaysCount">-</div>
+            <div class="stat-label">Po operaci</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number" id="statDocsCount">0</div>
+            <div class="stat-label">Zpráv v systému</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number" id="statLogsCount">0</div>
+            <div class="stat-label">Záznamů péče</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Application Container -->
+  <main class="main-wrapper">
+    
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs-wrapper">
+      <button class="nav-tab active" data-tab="docs">
+        <i data-lucide="folder-git-2"></i> Lékařské Zprávy
+      </button>
+      <button class="nav-tab" data-tab="logs">
+        <i data-lucide="notebook-pen"></i> Poznámky
+      </button>
+      <button class="nav-tab" data-tab="meds">
+        <i data-lucide="pill"></i> Léky a Cvičení
+      </button>
+      <button class="nav-tab" data-tab="share">
+        <i data-lucide="send"></i> Odeslat & Sdílet
+      </button>
+      <button class="nav-tab" data-tab="contacts">
+        <i data-lucide="phone"></i> Kontakty & Lékaři
+      </button>
+    </nav>
+
+    <!-- TAB 1: Lékařské Zprávy a Dokumenty -->
+    <section class="tab-view active" id="tab-docs">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <i data-lucide="file-text"></i> Dokumentace a Lékařské Zprávy
+          </h2>
+          <button class="btn btn-primary" id="btnOpenAddDoc">
+            <i data-lucide="plus-circle"></i> Nahrát novou zprávu / RTG
+          </button>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="toolbar">
+          <div class="search-input-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="docSearchInput" placeholder="Hledat ve zprávách (např. Clexane, RTG, Motol, Kontrola)...">
+          </div>
+
+          <div class="filter-pills">
+            <button class="filter-pill active" data-cat="all">Všechny dokumenty</button>
+            <button class="filter-pill" data-cat="propousteci">Propouštěcí zprávy</button>
+            <button class="filter-pill" data-cat="rtg">RTG / Zobrazovací</button>
+            <button class="filter-pill" data-cat="fyzioterapie">Fyzioterapie</button>
+            <button class="filter-pill" data-cat="recepty">Recepty & Léky</button>
+          </div>
+        </div>
+
+        <!-- Documents Grid -->
+        <div class="doc-grid" id="documentsGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Poznámky & Komentáře -->
+    <section class="tab-view" id="tab-logs">
+      <div class="grid-main-side">
+        
+        <!-- Left: Timeline of Logs -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i data-lucide="notebook-pen"></i> Poznámky
+            </h2>
+            <button class="btn btn-primary" id="btnOpenAddLog">
+              <i data-lucide="plus-circle"></i> Nová poznámka
+            </button>
+          </div>
+
+          <div class="timeline" id="careLogsTimeline">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Right: Important Care Reminders & Caregivers -->
+        <div>
+          <div class="card">
+            <div class="card-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+              <h3 class="card-title">
+                <i data-lucide="bell"></i> Důležité termíny
+              </h3>
+              <button class="btn btn-primary btn-sm" id="btnAddReminder">
+                <i data-lucide="plus"></i> Přidat termín
+              </button>
+            </div>
+            
+            <div id="remindersContainer">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header" style="margin-bottom: 0.5rem; padding-bottom: 0.5rem;">
+              <h3 class="card-title">
+                <i data-lucide="users"></i> Pečující rodina
+              </h3>
+              <button class="btn btn-primary btn-sm" id="btnAddCaregiver">
+                <i data-lucide="plus"></i> Přidat službu
+              </button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 0.75rem;">
+              Rozpis služeb u maminky v tomto týdnu:
+            </p>
+            <ul id="caregiversContainer" style="list-style: none; font-size: 0.875rem; line-height: 1.8;">
+              <!-- Rendered dynamically -->
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 3: Léky a Rehabilitace -->
+    <section class="tab-view" id="tab-meds">
+      <div class="grid-2">
+        
+        <!-- Medication Schedule -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i data-lucide="pill"></i> Harmonogram a dávkování léků
+            </h2>
+            <button class="btn btn-primary btn-sm" id="btnAddMedication">
+              <i data-lucide="plus"></i> Přidat lék
+            </button>
+          </div>
+
+          <p style="font-size: 0.875rem; color: var(--slate-600); margin-bottom: 1rem;">
+            Zaškrtněte podané léky pro dnešní den. Ostatní pečující hned uvidí, že maminka lék dostala.
+          </p>
+
+          <div class="med-list" id="medicationList">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Rehabilitation Rules & Exercises -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i data-lucide="shield-alert"></i> Bezpečnostní pravidla po TEP kyčle
+            </h2>
+            <button class="btn btn-primary btn-sm" id="btnAddRehabRule">
+              <i data-lucide="plus"></i> Přidat pravidlo
+            </button>
+          </div>
+
+          <div id="rehabRulesContainer">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 4: Odesílání a Sdílení -->
+    <section class="tab-view" id="tab-share">
+      <div class="share-box">
+        <h3><i data-lucide="send" style="vertical-align: middle;"></i> Centrum pro odesílání zpráv a lékařských souhrnů</h3>
+        <p style="color: var(--primary-100); font-size: 0.95rem;">
+          Zde můžete snadno vygenerovat a odeslat lékařskou zprávu, souhrn pro ošetřujícího doktora, nebo poslat rychlé info rodině přes WhatsApp nebo E-mail.
+        </p>
+
+        <div class="share-options-grid">
+          <div class="share-card-btn" onclick="app.openModal('modalShareEmail')">
+            <i data-lucide="mail" style="width: 28px; height: 28px;"></i>
+            <strong style="font-size: 1.05rem;">Odeslat zprávu e-mailem</strong>
+            <span style="font-size: 0.8rem; opacity: 0.9;">Předvyplněná šablona se skutečnými daty</span>
+          </div>
+
+          <div class="share-card-btn" onclick="app.shareWhatsApp()">
+            <i data-lucide="message-circle" style="width: 28px; height: 28px;"></i>
+            <strong style="font-size: 1.05rem;">Sdílet na WhatsApp / SMS</strong>
+            <span style="font-size: 0.8rem; opacity: 0.9;">Rychlé odeslání aktuálního souhrnu</span>
+          </div>
+
+          <div class="share-card-btn" onclick="app.printMedicalReport()">
+            <i data-lucide="file-check-2" style="width: 28px; height: 28px;"></i>
+            <strong style="font-size: 1.05rem;">Generovat PDF Report pro lékaře</strong>
+            <span style="font-size: 0.8rem; opacity: 0.9;">Kompletní výpis pro kontrolu na ortopedii</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <i data-lucide="copy"></i> Aktuální živý souhrn k okamžitému zkopírování
+          </h3>
+          <button class="btn btn-outline btn-sm" onclick="app.updateShareSummaryText()">
+            <i data-lucide="refresh-cw"></i> Obnovit text z aktuálních dat
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label>Zpřístupněná data (automaticky se aktualizují z vašeho profilu, deníku a léků):</label>
+          <textarea class="form-control" id="shareSummaryTextArea" style="font-family: monospace; font-size: 0.85rem; height: 200px;" readonly></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('shareSummaryTextArea').value); alert('Souhrn s aktuálními daty byl zkopírován do schránky!');">
+          <i data-lucide="clipboard"></i> Zkopírovat aktuální text souhrnu
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 5: Kontakty & Lékaři -->
+    <section class="tab-view" id="tab-contacts">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <i data-lucide="phone-call"></i> Ošetřující lékaři a důležité kontakty
+          </h2>
+          <button class="btn btn-primary btn-sm" id="btnAddContact">
+            <i data-lucide="plus"></i> Přidat kontakt
+          </button>
+        </div>
+
+        <div class="grid-3" id="contactsGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: Nahrát novou lékařskou zprávu -->
+  <div class="modal-overlay" id="modalAddDoc">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modalAddDocTitle"><i data-lucide="plus-circle" style="vertical-align: middle; color: var(--primary-600);"></i> Uložit novou lékařskou zprávu</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="addDocForm">
+        <div class="modal-body">
+          
+          <div class="file-dropzone" id="fileDropzone">
+            <i data-lucide="upload-cloud" style="width: 40px; height: 40px;"></i>
+            <p style="font-weight: 600; color: var(--slate-800);">Přetáhněte sem soubor (PDF, obrázek RTG) nebo klikněte</p>
+            <p style="font-size: 0.8rem; color: var(--slate-600);">Automaticky se bezpečně uloží v prohlížeči</p>
+          </div>
+          <input type="file" id="docFileInput" accept=".pdf,image/*,.doc,.docx" style="display: none;">
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label>Název zprávy / dokumentu *</label>
+            <input type="text" class="form-control" id="docTitleInput" placeholder="např. Kontrolní RTG zpráva z ortopedie" required>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Kategorie dokumentu</label>
+              <select class="form-control" id="docCatSelect">
+                <option value="propousteci">Propouštěcí zpráva</option>
+                <option value="rtg">RTG / Zobrazovací metody</option>
+                <option value="fyzioterapie">Fyzioterapie & Rehabilitace</option>
+                <option value="recepty">Recepty & Léky</option>
+                <option value="ortopedie">Ortopedie</option>
+                <option value="ostatni">Ostatní dokumenty</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Datum vyhotovení</label>
+              <input type="date" class="form-control" id="docDateInput">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Lékař / Ošetřující</label>
+              <input type="text" class="form-control" id="docDoctorInput" placeholder="MUDr. Pavel Novotný">
+            </div>
+
+            <div class="form-group">
+              <label>Nemocnice / Zařízení</label>
+              <input type="text" class="form-control" id="docFacilityInput" placeholder="FN Motol">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Stručný popis / Klíčové závěry (Epikríza)</label>
+            <textarea class="form-control" id="docSummaryInput" placeholder="Zadejte hlavní závěry zprávy, doporučení, stehy, dávkování..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Štítky (oddělené čárkou)</label>
+            <input type="text" class="form-control" id="docTagsInput" placeholder="Důležité, Stehy, Clexane">
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit zprávu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Přidat / Upravit poznámku -->
+  <div class="modal-overlay" id="modalAddLog">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modalAddLogTitle"><i data-lucide="notebook-pen" style="vertical-align: middle; color: var(--primary-600);"></i> Nová poznámka</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="addLogForm">
+        <div class="modal-body">
+          
+          <div class="form-group">
+            <label>Kdo vyplnil *</label>
+            <input type="text" class="form-control" id="logAuthorInput" placeholder="Vaše jméno (např. Petr, Jana, Sestra...)" required>
+          </div>
+
+          <div class="form-group">
+            <label>Název poznámky *</label>
+            <input type="text" class="form-control" id="logTitleInput" placeholder="Stručný název poznámky" required>
+          </div>
+
+          <div class="form-group">
+            <label>Text poznámky *</label>
+            <textarea class="form-control" id="logContentInput" style="height: 120px;" placeholder="Napište podrobnosti nebo text poznámky..." required></textarea>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit poznámku</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Zobrazit detail dokumentu -->
+  <div class="modal-overlay" id="modalViewDoc">
+    <div class="modal-container" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 id="modalViewDocTitle">Detail dokumentu</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="modalViewDocBody">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close">Zavřít</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Odeslat e-mail lékaři nebo rodině -->
+  <div class="modal-overlay" id="modalShareEmail">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3><i data-lucide="mail" style="vertical-align: middle; color: var(--primary-600);"></i> Odeslat e-mail lékaři / rodině</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="sendEmailForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Příjemce (E-mail)</label>
+            <input type="email" class="form-control" id="emailRecipient" placeholder="Zadejte e-mail ošetřujícího lékaře nebo rodiny" value="" required>
+          </div>
+
+          <div class="form-group">
+            <label>Předmět zprávy</label>
+            <input type="text" class="form-control" id="emailSubject" placeholder="Předmět e-mailu" required>
+          </div>
+
+          <div class="form-group">
+            <label>Obsah e-mailu (automaticky vygenerovaný z vašich reálných dat)</label>
+            <textarea class="form-control" id="emailBody" style="height: 200px;" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="send"></i> Otevřít e-mailový klient</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Editovat profil maminky -->
+  <div class="modal-overlay" id="modalEditPatient">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3><i data-lucide="edit-3" style="vertical-align: middle; color: var(--primary-600);"></i> Upravit profil maminky a diagnózu</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="editPatientForm">
+        <div class="modal-body">
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Jméno a příjmení *</label>
+              <input type="text" class="form-control" id="patientNameInput" required>
+            </div>
+            <div class="form-group">
+              <label>Věk (roky)</label>
+              <input type="number" class="form-control" id="patientAgeInput">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Datum narození</label>
+              <input type="text" class="form-control" id="patientBirthDateInput" placeholder="např. 14. 05. 1952">
+            </div>
+            <div class="form-group">
+              <label>Datum operace *</label>
+              <input type="date" class="form-control" id="patientSurgeryDateInput" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Diagnóza a popis zákroku *</label>
+            <input type="text" class="form-control" id="patientDiagnosisInput" required>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Nemocnice / Klinika</label>
+              <input type="text" class="form-control" id="patientHospitalInput">
+            </div>
+            <div class="form-group">
+              <label>Ošetřující ortoped</label>
+              <input type="text" class="form-control" id="patientDoctorInput">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Alergie a upozornění</label>
+              <input type="text" class="form-control" id="patientAllergiesInput">
+            </div>
+            <div class="form-group">
+              <label>Pojišťovna</label>
+              <input type="text" class="form-control" id="patientInsuranceInput">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit profil</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Přidat nový lék -->
+  <div class="modal-overlay" id="modalAddMed">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modalAddMedTitle"><i data-lucide="pill" style="vertical-align: middle; color: var(--primary-600);"></i> Přidat nový lék</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="addMedForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Název léku *</label>
+            <input type="text" class="form-control" id="medNameInput" placeholder="např. Clexane 4000 IU" required>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Účel / Indikace</label>
+              <input type="text" class="form-control" id="medPurposeInput" placeholder="na ředění krve / proti bolesti">
+            </div>
+            <div class="form-group">
+              <label>Dávkování *</label>
+              <input type="text" class="form-control" id="medDosageInput" placeholder="1x denně 1 tableta" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Časování dávky</label>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; margin-top: 0.35rem;">
+              <label><input type="checkbox" id="timingRano" checked> Ráno (08:00)</label>
+              <label><input type="checkbox" id="timingPoledne"> Poledne (12:00)</label>
+              <label><input type="checkbox" id="timingVecer"> Večer (20:00)</label>
+              <label><input type="checkbox" id="timingNoc"> Noc (22:00)</label>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Pokyny pro užívání</label>
+              <input type="text" class="form-control" id="medInstructionsInput" placeholder="Aplikovat do břicha / po jídle">
+            </div>
+            <div class="form-group">
+              <label>Počet ks v zásobě</label>
+              <input type="number" class="form-control" id="medStockInput" value="30">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit lék</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Přidat kontakt -->
+  <div class="modal-overlay" id="modalAddContact">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modalAddContactTitle"><i data-lucide="phone" style="vertical-align: middle; color: var(--primary-600);"></i> Přidat nový kontakt</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="addContactForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Jméno a tituly *</label>
+            <input type="text" class="form-control" id="cntNameInput" placeholder="MUDr. Jan Novák" required>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Role / Specializace</label>
+              <input type="text" class="form-control" id="cntRoleInput" placeholder="Praktický lékař / Ortoped">
+            </div>
+            <div class="form-group">
+              <label>Nemocnice / Ordinace</label>
+              <input type="text" class="form-control" id="cntFacilityInput" placeholder="Ordinace Praha 6">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Telefon *</label>
+              <input type="tel" class="form-control" id="cntPhoneInput" placeholder="+420 600 000 000" required>
+            </div>
+            <div class="form-group">
+              <label>E-mail</label>
+              <input type="email" class="form-control" id="cntEmailInput" placeholder="lekar@ordinace.cz">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Poznámka / Ordinační hodiny</label>
+            <input type="text" class="form-control" id="cntNoteInput" placeholder="Ordinační hodiny: Po-Pá 8-12">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit kontakt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Přidat / Upravit Důležitý termín -->
+  <div class="modal-overlay" id="modalAddReminder">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modalAddReminderTitle"><i data-lucide="bell" style="vertical-align: middle; color: var(--primary-600);"></i> Přidat nový důležitý termín</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="addReminderForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Datum a čas termínu *</label>
+            <input type="text" class="form-control" id="remDateInput" placeholder="např. Pátek 25. 09. 2026 (09:00)" required>
+          </div>
+          <div class="form-group">
+            <label>Popis termínu / Událost *</label>
+            <input type="text" class="form-control" id="remTitleInput" placeholder="např. Odstranění stehů (FN Motol)" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit termín</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Přidat / Upravit Pečující rodinu -->
+  <div class="modal-overlay" id="modalAddCaregiver">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modalAddCaregiverTitle"><i data-lucide="users" style="vertical-align: middle; color: var(--primary-600);"></i> Přidat službu pečujícího</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="addCaregiverForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Dny v týdnu / Čas *</label>
+            <input type="text" class="form-control" id="cgDaysInput" placeholder="např. Pondělí & Středa dopoledne" required>
+          </div>
+          <div class="form-group">
+            <label>Jméno a role pečujícího *</label>
+            <input type="text" class="form-control" id="cgNameInput" placeholder="např. Petr (syn), Jana (dcera)..." required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit službu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Přidat / Upravit Bezpečnostní pravidlo -->
+  <div class="modal-overlay" id="modalAddRehabRule">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modalAddRehabRuleTitle"><i data-lucide="shield-alert" style="vertical-align: middle; color: var(--primary-600);"></i> Přidat bezpečnostní pravidlo</h3>
+        <button class="close-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="addRehabRuleForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Název pravidla *</label>
+            <input type="text" class="form-control" id="ruleTitleInput" placeholder="např. ZÁKAZ nosit těžká břemena" required>
+          </div>
+          <div class="form-group">
+            <label>Podrobný popis / Doporučení *</label>
+            <textarea class="form-control" id="ruleDescInput" placeholder="Popište přesný postup nebo omezení pro maminku..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-close">Zrušit</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Uložit pravidlo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase Cloud Live Sync Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js?v=10.0"></script>
+
+  <!-- Scripts -->
+  <script src="js/db.js?v=10.0"></script>
+  <script src="js/data.js?v=10.0"></script>
+  <script src="js/app.js?v=10.0"></script>
+
+</body>
+</html>
