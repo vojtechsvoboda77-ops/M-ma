@@ -581,7 +581,12 @@ class CareMomApp {
       await window.db.delete('documents', docId);
       await this.syncToFirebase('documents', docId, null, true);
       this.documents = this.documents.filter(d => d.id !== docId);
-     // --- Care Log / Notes Logic & CRUD ---
+      this.renderDocuments();
+      this.renderPatientHeader();
+    }
+  }
+
+  // --- Care Log / Notes Logic & CRUD ---
 
   renderCareLogs() {
     const container = document.getElementById('careLogsTimeline');
@@ -1340,7 +1345,7 @@ AKTUÁLNÍ STAV (${diffDays}. pooperační den):
 - Stav rány / krytí: ${woundStr}
 
 UŽÍVANÉ LÉKY:
-${medSListStr}
+${medsListStr}
 
 NEJBLIŽŠÍ KONTROLA / PLÁN:
 - ${nextAppointmentStr}`;
