@@ -372,8 +372,11 @@ class CareMomApp {
           </div>
 
           <div class="doc-footer-actions">
+            <button class="btn btn-primary btn-sm" onclick="app.openDocumentFile('${doc.id}')" title="Otevřít nebo stáhnout přiložený dokument">
+              <i data-lucide="external-link"></i> Otevřít přílohu
+            </button>
             <button class="btn btn-secondary btn-sm" onclick="app.viewDocument('${doc.id}')">
-              <i data-lucide="eye"></i> Zobrazit
+              <i data-lucide="eye"></i> Detail
             </button>
             <button class="btn btn-secondary btn-sm" onclick="app.openEditDocumentModal('${doc.id}')">
               <i data-lucide="edit-3"></i> Upravit
@@ -390,6 +393,50 @@ class CareMomApp {
     }).join('');
 
     if (window.lucide) window.lucide.createIcons();
+  }
+
+  getDocFileUrl(doc) {
+    if (!doc) return null;
+    if (doc.fileData) {
+      if (doc.fileData.startsWith('data:')) {
+        try {
+          const parts = doc.fileData.split(',');
+          const mime = parts[0].match(/:(.*?);/)[1];
+          const bstr = atob(parts[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          const blob = new Blob([u8arr], { type: mime });
+          return URL.createObjectURL(blob);
+        } catch (e) {
+          return doc.fileData;
+        }
+      }
+      return doc.fileData;
+    }
+    if (doc.fileName) {
+      return encodeURI(doc.fileName);
+    }
+    return null;
+  }
+
+  openDocumentFile(docId) {
+    const doc = this.documents.find(d => d.id === docId);
+    if (!doc) return;
+    const url = this.getDocFileUrl(doc);
+    if (url) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      if (doc.fileName) a.download = doc.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      alert("⚠️ Soubor pro tento dokument nebyl nalezen. Nahrajte prosím soubor znovu přes tlačítko 'Upravit'.");
+    }
   }
 
   handleFileSelected(file) {
@@ -530,6 +577,7 @@ class CareMomApp {
     const modalTitle = document.getElementById('modalViewDocTitle');
 
     modalTitle.innerText = doc.title;
+    const fileUrl = this.getDocFileUrl(doc);
 
     let contentHtml = `
       <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--slate-200);">
@@ -545,11 +593,19 @@ class CareMomApp {
       </div>
     `;
 
-    if (doc.fileData) {
+    if (fileUrl) {
+      contentHtml += `
+        <div style="margin-bottom: 1.25rem; text-align: center;">
+          <button class="btn btn-primary" onclick="app.openDocumentFile('${doc.id}')" style="font-size: 1rem; padding: 0.6rem 1.4rem;">
+            <i data-lucide="external-link"></i> Otevřít / Stáhnout přílohu (${this.escapeHtml(doc.fileName || 'Dokument')})
+          </button>
+        </div>
+      `;
+
       if (doc.fileType === 'image') {
-        contentHtml += `<div style="text-align: center;"><img src="${doc.fileData}" style="max-width: 100%; border-radius: 8px; box-shadow: var(--shadow-md);" /></div>`;
+        contentHtml += `<div style="text-align: center;"><img src="${fileUrl}" style="max-width: 100%; max-height: 550px; border-radius: 8px; box-shadow: var(--shadow-md);" /></div>`;
       } else {
-        contentHtml += `<iframe src="${doc.fileData}" style="width: 100%; height: 500px; border: none; border-radius: 8px;"></iframe>`;
+        contentHtml += `<object data="${fileUrl}" type="application/pdf" style="width: 100%; height: 500px; border-radius: 8px;"><iframe src="${fileUrl}" style="width: 100%; height: 500px; border: none; border-radius: 8px;"></iframe></object>`;
       }
     } else {
       contentHtml += `
@@ -557,14 +613,14 @@ class CareMomApp {
           <i data-lucide="file-check-2" style="width: 64px; height: 64px; color: var(--primary-600); margin-bottom: 1rem;"></i>
           <h4 style="font-size: 1.15rem; color: var(--slate-900); margin-bottom: 0.5rem;">${this.escapeHtml(doc.title)}</h4>
           <p style="font-size: 0.9rem; color: var(--slate-600); max-width: 500px; margin: 0 auto 1.5rem auto;">
-            Tento dokument je uložen v oficiální zdravotní složce pacienta.
+            Příloha souboru pro tento dokument nebyla nalezena. Můžete ji nahrát stisknutím tlačítka Upravit.
           </p>
           <div style="display: flex; gap: 0.5rem; justify-content: center;">
             <button class="btn btn-secondary btn-sm" onclick="app.openEditDocumentModal('${doc.id}')">
-              <i data-lucide="edit-3"></i> Upravit zprávu
+              <i data-lucide="edit-3"></i> Upravit / Nahradit soubor
             </button>
             <button class="btn btn-primary btn-sm" onclick="app.shareSingleDocument('${doc.id}')">
-              <i data-lucide="share-2"></i> Sdílet (WhatsApp / E-mail)
+              <i data-lucide="share-2"></i> Sdílet text zprávy
             </button>
           </div>
         </div>
